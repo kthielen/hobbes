@@ -11,7 +11,7 @@
 
 #include <llvm/Config/llvm-config.h>
 
-#if LLVM_VERSION_MAJOR != 3 && LLVM_VERSION_MAJOR != 4
+#if LLVM_VERSION_MAJOR != 3 && LLVM_VERSION_MAJOR != 4 && LLVM_VERSION_MAJOR != 8
 #error "I don't know how to use this version of LLVM"
 #endif
 
@@ -29,7 +29,7 @@
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Support/Signals.h>
-#if LLVM_VERSION_MAJOR == 4
+#if LLVM_VERSION_MAJOR >= 4
 #include <llvm/Bitcode/BitstreamReader.h>
 #include <llvm/Bitcode/BitstreamWriter.h>
 #else
@@ -43,7 +43,7 @@
 #if LLVM_VERSION_MINOR == 3
 #include <llvm/Analysis/Verifier.h>
 #include <llvm/PassManager.h>
-#elif LLVM_VERSION_MINOR >= 5 || LLVM_VERSION_MAJOR == 4
+#elif LLVM_VERSION_MINOR >= 5 || LLVM_VERSION_MAJOR == 4 || LLVM_VERSION_MAJOR == 8
 #include <llvm/IR/Verifier.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/LegacyPassManager.h>
@@ -245,6 +245,19 @@ inline llvm::ConstantInt* civalue(long x) {
 
 inline llvm::ConstantInt* civalue(int128_t x) {
   return llvm::ConstantInt::get(llvm::IntegerType::get(context(), 128), x); //static_cast<uint64_t>(x));
+}
+
+// memcpy
+inline llvm::Value* memCopy(llvm::IRBuilder<>* b, llvm::Value* dst, uint32_t dstAlign, llvm::Value* src, uint32_t srcAlign, llvm::Value* sz) {
+#if LLVM_VERSION_MAJOR == 8
+      return b->CreateMemCpy(dst, dstAlign, src, srcAlign, sz);
+#else
+      return b->CreateMemCpy(dst, src, sz, srcAlign);
+#endif
+}
+
+inline llvm::Value* memCopy(llvm::IRBuilder<>* b, llvm::Value* dst, uint32_t dstAlign, llvm::Value* src, uint32_t srcAlign, unsigned int sz) {
+  return memCopy(b, dst, dstAlign, src, srcAlign, civalue(sz));
 }
 
 // an intermediate representation for records
@@ -478,7 +491,7 @@ inline llvm::Value* structOffset(llvm::IRBuilder<>* b, llvm::Value* p, unsigned 
 #endif
 }
 
-#if LLVM_VERSION_MINOR >= 6 || LLVM_VERSION_MAJOR == 4
+#if LLVM_VERSION_MINOR >= 6 || LLVM_VERSION_MAJOR == 4 || LLVM_VERSION_MAJOR == 8
 inline llvm::ExecutionEngine* makeExecutionEngine(llvm::Module* m, llvm::SectionMemoryManager* smm) {
   std::string err;
   llvm::ExecutionEngine* ee =
